@@ -125,9 +125,9 @@ setup:
       help: "Login password / app password / API token. Stored encrypted in the vault."
       required: false
     - key: "from_address"
-      type: "email"
+      type: "string"
       label: "From address (fixed sender)"
-      help: "Every agent email is sent from THIS address. Agents cannot override it."
+      help: "Every agent email is sent from THIS address, e.g. agent@your-domain.com. Agents cannot override it. Validated as an email address on send."
       required: true
     - key: "from_name"
       type: "string"
