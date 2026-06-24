@@ -1,0 +1,31 @@
+{
+  "name": "@omadia/plugin-smtp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/plugin.js",
+  "description": "Send email over any SMTP server from your agent team — with attachments, a fixed sender, and a recipient allow-list. Built on the omadia plugin starter skeleton.",
+  "license": "MIT",
+  "homepage": "https://github.com/MarvinVomberg/omadia-tool-smtp",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MarvinVomberg/omadia-tool-smtp.git"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "node scripts/build-zip.mjs",
+    "clean": "rm -rf dist out"
+  },
+  "dependencies": {
+    "nodemailer": "^6.9.16"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/nodemailer": "^6.4.17",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.6.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

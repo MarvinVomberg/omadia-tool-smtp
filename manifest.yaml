@@ -1,0 +1,253 @@
+schema_version: "1"
+
+# ===========================================================================
+# @omadia/plugin-smtp — Send email over any SMTP server.
+# ---------------------------------------------------------------------------
+# A kind:tool plugin. It registers ONE native tool, `smtp_send_email`, that the
+# orchestrator can call to send mail (with attachments) through an operator-
+# configured SMTP server.
+#
+# Security posture (see README "Security model"):
+#   - FIXED sender: the From address is operator config, never agent input.
+#   - Recipient ALLOW-LIST: every to/cc/bcc is checked against an operator list
+#     (addresses and/or domains). Empty list = nothing sends (fail closed).
+#   - TLS by default: STARTTLS is required unless the operator opts out for a
+#     trusted local relay.
+#   - Egress is pinned: the only host the plugin may reach is the configured
+#     SMTP host:port, via the kernel's `permissions.network.outbound_tcp`.
+# ===========================================================================
+
+identity:
+  id: "@omadia/plugin-smtp"
+  kind: "tool"
+  domain: "smtp.mail"
+  name: "SMTP Email"
+  version: "0.1.0"
+  description: "Send email over any SMTP server — with attachments, a fixed sender, and a recipient allow-list for safe agent use."
+  authors:
+    - name: "Marvin Vomberg"
+      url: "https://github.com/MarvinVomberg"
+  license: "MIT"
+  icon: "./assets/icon.svg"
+  categories:
+    - "tools"
+    - "communication"
+
+compat:
+  core: ">=1.0 <2.0"
+  node: ">=20"
+
+depends_on: []
+
+lifecycle:
+  entry: "dist/plugin.js"
+  uninstall_policy:
+    entities: "delete"
+    memory: "delete"
+    secrets: "delete"
+
+setup:
+  guide:
+    en: |
+      ## Connect an SMTP server
+
+      This tool sends email through **any** SMTP server you control (your
+      provider's relay, a corporate Exchange connector, Postmark/SES SMTP, a
+      local relay, …). It is built for **safe agent use**: the agents can only
+      send *from the address you fix here* and *to recipients you allow-list*.
+
+      ### 1. Get SMTP credentials
+      From your mail provider you need: the **host** (e.g. `smtp.eu.example.com`),
+      the **port** (587 for STARTTLS — recommended — or 465 for implicit TLS),
+      and a **username + password** (often an app password or API token).
+
+      ### 2. Fill in the fields below
+      - **From address** is the single sender every agent mail goes out as.
+        Agents cannot change it.
+      - **Recipient allow-list** decides who agents may write to. One entry per
+        line: a full address (`alice@acme.com`), a domain (`@acme.com`), or `*`
+        to allow anyone (not recommended). **Leave it empty and nothing sends.**
+      - Keep **Require TLS** on unless you point at a trusted local relay.
+    de: |
+      ## SMTP-Server verbinden
+
+      Dieses Tool versendet E-Mails über **einen beliebigen** SMTP-Server, den du
+      kontrollierst (Provider-Relay, Exchange-Connector, Postmark/SES-SMTP, ein
+      lokales Relay …). Es ist für **sicheren Agenten-Einsatz** gebaut: Agenten
+      können nur *von der hier fest hinterlegten Adresse* und *an Empfänger auf
+      der Allow-List* senden.
+
+      ### 1. SMTP-Zugangsdaten besorgen
+      Du brauchst: **Host** (z. B. `smtp.eu.example.com`), **Port** (587 für
+      STARTTLS — empfohlen — oder 465 für implizites TLS) sowie **Benutzername +
+      Passwort** (oft ein App-Passwort oder API-Token).
+
+      ### 2. Felder unten ausfüllen
+      - **Absenderadresse** ist der einzige Absender aller Agenten-Mails. Agenten
+        können sie nicht ändern.
+      - **Empfänger-Allow-List** legt fest, an wen Agenten schreiben dürfen. Ein
+        Eintrag pro Zeile: vollständige Adresse (`alice@acme.com`), eine Domain
+        (`@acme.com`) oder `*` für alle (nicht empfohlen). **Ist die Liste leer,
+        wird nichts versendet.**
+      - **TLS erzwingen** anlassen, außer bei einem vertrauenswürdigen lokalen Relay.
+  fields:
+    - key: "smtp_host"
+      type: "string"
+      label: "SMTP host"
+      help: "Hostname of the SMTP server, e.g. smtp.eu.example.com."
+      required: true
+    - key: "smtp_port"
+      type: "integer"
+      label: "SMTP port"
+      help: "587 for STARTTLS (recommended), 465 for implicit TLS, 25 for a plain local relay."
+      required: true
+      default: 587
+    - key: "smtp_secure"
+      type: "boolean"
+      label: "Implicit TLS (port 465)"
+      help: "On = connect with TLS immediately (port 465). Off = STARTTLS upgrade (port 587)."
+      required: false
+      default: false
+    - key: "smtp_require_tls"
+      type: "boolean"
+      label: "Require TLS"
+      help: "Refuse to send unencrypted. Keep ON. Turn off ONLY for a trusted local relay that has no TLS."
+      required: false
+      default: true
+    - key: "smtp_user"
+      type: "string"
+      label: "SMTP username"
+      help: "Login user for the SMTP server. Leave empty only for a relay that needs no auth."
+      required: false
+    - key: "smtp_password"
+      type: "secret"
+      label: "SMTP password"
+      help: "Login password / app password / API token. Stored encrypted in the vault."
+      required: false
+    - key: "from_address"
+      type: "email"
+      label: "From address (fixed sender)"
+      help: "Every agent email is sent from THIS address. Agents cannot override it."
+      required: true
+    - key: "from_name"
+      type: "string"
+      label: "From display name"
+      help: "Optional display name shown next to the sender address."
+      required: false
+    - key: "recipient_allowlist"
+      type: "string"
+      multiline: true
+      label: "Recipient allow-list"
+      help: "Who agents may email. One per line: full address (alice@acme.com), domain (@acme.com), or * for anyone. EMPTY = nothing sends (fail closed)."
+      required: true
+    - key: "allow_html"
+      type: "boolean"
+      label: "Allow HTML bodies"
+      help: "Permit agents to send HTML email. Off = plain text only."
+      required: false
+      default: true
+    - key: "max_attachment_mb"
+      type: "integer"
+      label: "Max attachment size (MB)"
+      help: "Per-message cap on total attachment bytes."
+      required: false
+      default: 10
+    - key: "max_recipients"
+      type: "integer"
+      label: "Max recipients per email"
+      help: "Cap on combined to + cc + bcc count, to limit blast radius."
+      required: false
+      default: 25
+  self_test: true
+
+# The single tool the orchestrator may call. `id` + `input_schema` MUST match
+# the ctx.tools.register(...) call in src/plugin.ts. Note there is deliberately
+# NO `from` field — the sender is fixed by operator config.
+capabilities:
+  - id: "smtp_send_email"
+    description: "Send an email (optionally with attachments) through the configured SMTP server. The sender is fixed by the operator; recipients must pass the operator's allow-list."
+    input_schema:
+      type: "object"
+      required: ["to", "subject"]
+      properties:
+        to:
+          type: "array"
+          items: { type: "string" }
+          description: "Recipient email addresses. Each must pass the operator allow-list."
+        cc:
+          type: "array"
+          items: { type: "string" }
+          description: "Optional carbon-copy addresses (also allow-list checked)."
+        bcc:
+          type: "array"
+          items: { type: "string" }
+          description: "Optional blind-carbon-copy addresses (also allow-list checked)."
+        subject:
+          type: "string"
+          description: "Email subject line."
+        text:
+          type: "string"
+          description: "Plain-text body. Provide this and/or html."
+        html:
+          type: "string"
+          description: "HTML body. Only honoured if the operator enabled HTML."
+        attachments:
+          type: "array"
+          description: "Optional file attachments."
+          items:
+            type: "object"
+            required: ["filename"]
+            properties:
+              filename:
+                type: "string"
+                description: "Attachment file name, e.g. report.pdf."
+              content_base64:
+                type: "string"
+                description: "File bytes, base64-encoded. Use this for content the agent has in hand."
+              url:
+                type: "string"
+                description: "HTTP(S) URL to fetch the file from. Only works if the operator allow-listed the source host for outbound HTTP."
+              content_type:
+                type: "string"
+                description: "MIME type, e.g. application/pdf. Inferred from the filename when omitted."
+    output_schema:
+      type: "object"
+      properties:
+        ok: { type: "boolean" }
+        messageId: { type: "string" }
+        accepted: { type: "array", items: { type: "string" } }
+        rejected: { type: "array", items: { type: "string" } }
+        error: { type: "string" }
+    side_effects: "write"
+    idempotent: false
+    timeout_ms: 30000
+
+playbook:
+  when_to_use: |
+    Use to send an email on the user's behalf — a summary, a report, a
+    notification — when the user explicitly asks to email someone. The sender is
+    fixed and recipients are restricted by the operator, so only send to people
+    the user names.
+  example_prompts:
+    - "Email the Q3 summary to alice@acme.com."
+    - "Send Bob a note that the deployment finished."
+
+# Least privilege. The ONLY egress this plugin gets is a raw-TCP connection to
+# the operator-configured SMTP host:port (resolved from the config fields at
+# runtime). No HTTP egress is declared by default — base64 attachments need
+# none. To let agents attach files BY URL, add the source host(s) under
+# `network.outbound` (and understand you are widening egress).
+permissions:
+  memory:
+    reads: []
+    writes: []
+  graph:
+    reads: []
+    writes: []
+  network:
+    outbound: []
+    outbound_tcp:
+      - host: "$config.smtp_host"
+        port: "$config.smtp_port"
+  filesystem:
+    scratch: false
