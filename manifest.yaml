@@ -158,6 +158,12 @@ setup:
       help: "Cap on combined to + cc + bcc count, to limit blast radius."
       required: false
       default: 25
+    - key: "attachment_hosts"
+      type: "string"
+      multiline: true
+      label: "Attachment source hosts (for URL attachments)"
+      help: "Hosts the plugin may fetch URL attachments from — one per line or comma-separated, e.g. files.your-domain.com (or *.your-domain.com). EMPTY = URL attachments disabled (base64 attachments always work). Widening this lets agents fetch any URL on these hosts and attach it, so list only trusted hosts."
+      required: false
   self_test: true
 
 # The single tool the orchestrator may call. `id` + `input_schema` MUST match
@@ -232,11 +238,12 @@ playbook:
     - "Email the Q3 summary to alice@acme.com."
     - "Send Bob a note that the deployment finished."
 
-# Least privilege. The ONLY egress this plugin gets is a raw-TCP connection to
-# the operator-configured SMTP host:port (resolved from the config fields at
-# runtime). No HTTP egress is declared by default — base64 attachments need
-# none. To let agents attach files BY URL, add the source host(s) under
-# `network.outbound` (and understand you are widening egress).
+# Least privilege. The raw-TCP egress is pinned to the operator-configured SMTP
+# host:port. HTTP egress (for URL attachments) is ALSO operator-configured: the
+# `$config.attachment_hosts` reference resolves to whatever hosts the operator
+# entered — empty by default, so ctx.http is absent and URL attachments are off
+# (base64 still works). Both egress paths are therefore controlled from the
+# install form, not hard-coded here.
 permissions:
   memory:
     reads: []
@@ -245,7 +252,8 @@ permissions:
     reads: []
     writes: []
   network:
-    outbound: []
+    outbound:
+      - "$config.attachment_hosts"
     outbound_tcp:
       - host: "$config.smtp_host"
         port: "$config.smtp_port"

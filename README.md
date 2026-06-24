@@ -41,6 +41,7 @@ Set on install (see the in-app setup guide for the long form):
 - `from_address` (**fixed sender**), `from_name` (optional)
 - `recipient_allowlist` (one entry per line — fail closed when empty)
 - `allow_html`, `max_attachment_mb`, `max_recipients`
+- `attachment_hosts` (hosts allowed for URL attachments — empty disables them)
 
 ## Tool: `smtp_send_email`
 
@@ -63,9 +64,11 @@ Attachments come in two forms:
 
 - **`content_base64`** — file bytes inline. Needs no extra network access; the
   strict default.
-- **`url`** — fetched via `ctx.http`. Only works if the operator allow-listed
-  the source host under `permissions.network.outbound`. Absent that, the tool
-  returns a clear error and you should use `content_base64`.
+- **`url`** — fetched via `ctx.http`. Only works if the operator listed the
+  source host in the **Attachment source hosts** config field
+  (`attachment_hosts`); the manifest resolves that into the HTTP egress
+  allow-list at install. Empty by default, so URL attachments are off and the
+  tool returns a clear error telling you to use `content_base64`.
 
 ## Build
 
