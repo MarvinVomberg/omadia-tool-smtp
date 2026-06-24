@@ -85,11 +85,22 @@ const stageDir = join(pkgRoot, 'out', stageName);
 rmSync(stageDir, { recursive: true, force: true });
 mkdirSync(stageDir, { recursive: true });
 
-const INCLUDE = ['manifest.yaml', 'package.json', 'dist', 'assets', 'skills', 'README.md', 'LICENSE', 'NOTICE'];
+// The omadia upload validator allow-lists by file EXTENSION. Some core
+// versions accept a bare `LICENSE`/`NOTICE`, others reject any extensionless
+// file ("disallowed extension (<none>)"). Stage those two with a `.txt`
+// extension so the ZIP is accepted everywhere; everything else already carries
+// an allow-listed extension.
+const INCLUDE = ['manifest.yaml', 'package.json', 'dist', 'assets', 'skills', 'README.md'];
+const RENAME = { LICENSE: 'LICENSE.txt', NOTICE: 'NOTICE.txt' };
 for (const entry of INCLUDE) {
   const src = join(pkgRoot, entry);
   if (!existsSync(src)) continue;
   cpSync(src, join(stageDir, entry), { recursive: true });
+}
+for (const [src, dest] of Object.entries(RENAME)) {
+  const srcAbs = join(pkgRoot, src);
+  if (!existsSync(srcAbs)) continue;
+  cpSync(srcAbs, join(stageDir, dest));
 }
 
 // --- 4) zip ----------------------------------------------------------------
